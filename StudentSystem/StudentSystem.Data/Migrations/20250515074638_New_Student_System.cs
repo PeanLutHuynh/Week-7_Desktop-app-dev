@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace StudentSystem.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class Student_System : Migration
+    public partial class New_Student_System : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -26,6 +26,19 @@ namespace StudentSystem.Data.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Courses", x => x.CourseId);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Licenses",
+                columns: table => new
+                {
+                    LicenseId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Licenses", x => x.LicenseId);
                 });
 
             migrationBuilder.CreateTable(
@@ -119,6 +132,30 @@ namespace StudentSystem.Data.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "ResourceLicenses",
+                columns: table => new
+                {
+                    ResourceId = table.Column<int>(type: "INTEGER", nullable: false),
+                    LicenseId = table.Column<int>(type: "INTEGER", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ResourceLicenses", x => new { x.ResourceId, x.LicenseId });
+                    table.ForeignKey(
+                        name: "FK_ResourceLicenses_Licenses_LicenseId",
+                        column: x => x.LicenseId,
+                        principalTable: "Licenses",
+                        principalColumn: "LicenseId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ResourceLicenses_Resources_ResourceId",
+                        column: x => x.ResourceId,
+                        principalTable: "Resources",
+                        principalColumn: "ResourceId",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_HomeworkSubmissions_CourseId",
                 table: "HomeworkSubmissions",
@@ -128,6 +165,11 @@ namespace StudentSystem.Data.Migrations
                 name: "IX_HomeworkSubmissions_StudentId",
                 table: "HomeworkSubmissions",
                 column: "StudentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ResourceLicenses_LicenseId",
+                table: "ResourceLicenses",
+                column: "LicenseId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Resources_CourseId",
@@ -147,16 +189,22 @@ namespace StudentSystem.Data.Migrations
                 name: "HomeworkSubmissions");
 
             migrationBuilder.DropTable(
-                name: "Resources");
+                name: "ResourceLicenses");
 
             migrationBuilder.DropTable(
                 name: "StudentCourses");
 
             migrationBuilder.DropTable(
-                name: "Courses");
+                name: "Licenses");
+
+            migrationBuilder.DropTable(
+                name: "Resources");
 
             migrationBuilder.DropTable(
                 name: "Students");
+
+            migrationBuilder.DropTable(
+                name: "Courses");
         }
     }
 }

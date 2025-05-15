@@ -32,6 +32,8 @@ namespace StudentSystem.Client
                 Console.WriteLine("3. List courses with more than 5 resources");
                 Console.WriteLine("4. List active courses on a specific date");
                 Console.WriteLine("5. Calculate student course statistics");
+                Console.WriteLine("6. List courses with resources and licenses");
+                Console.WriteLine("7. List student statistics with resources and licenses");
                 Console.WriteLine("0. Exit");
 
                 Console.Write("\nYour choice: ");
@@ -53,6 +55,12 @@ namespace StudentSystem.Client
                         break;
                     case "5":
                         CalculateStudentStatistics(context);
+                        break;
+                    case "6":
+                        ListCoursesWithResourcesAndLicenses(context);
+                        break;
+                    case "7":
+                        ListStudentStatisticsWithResourcesAndLicenses(context);
                         break;
                     case "0":
                         return;
@@ -411,6 +419,38 @@ namespace StudentSystem.Client
                 }
                 context.SaveChanges();
 
+                // Licenses
+                Console.WriteLine("Synchronizing license data...");
+                var licensesToKeep = new[]
+                {
+                new License { Name = "MIT License" },
+                new License { Name = "Apache License 2.0" },
+                new License { Name = "GNU GPL v3" },
+                new License { Name = "Creative Commons" }
+                };
+
+                SynchronizeEntities(context, context.Licenses,
+                    licensesToKeep,
+                    l => l.Name,
+                    (existing, updated) => false, // Licenses don't have properties to update
+                    "License");
+
+                // Resource Licenses
+                Console.WriteLine("Synchronizing resource licenses...");
+                var resourceLicensesToKeep = new[]
+                {
+                new { ResourceName = "C# Slides", LicenseName = "MIT License" },
+                new { ResourceName = "C# Video", LicenseName = "Creative Commons" },
+                new { ResourceName = "C# Advanced PDF", LicenseName = "GNU GPL v3" },
+                new { ResourceName = "C# Practice Exercises", LicenseName = "MIT License" },
+                new { ResourceName = "C# Tutorial Videos", LicenseName = "Creative Commons" },
+                new { ResourceName = "SQL Basics Slides", LicenseName = "Apache License 2.0" },
+                new { ResourceName = "Python Setup Guide", LicenseName = "MIT License" },
+                new { ResourceName = "Flutter UI Components", LicenseName = "Creative Commons" },
+                // Add more resource-license relationships as needed
+                };
+
+                SynchronizeResourceLicenses(context, resourceLicensesToKeep);
                 Console.WriteLine("Database synchronization completed successfully.");
             }
             catch (DbUpdateException ex)
@@ -617,6 +657,83 @@ namespace StudentSystem.Client
             }
         }
 
+        private static void ListCoursesWithResourcesAndLicenses(StudentSystemContext context)
+        {
+            Console.WriteLine("\n--- Courses With Resources And Licenses ---");
+
+            var courses = context.Courses
+                .Include(c => c.Resources)
+                    .ThenInclude(r => r.Licenses)
+                        .ThenInclude(rl => rl.License)
+                .OrderByDescending(c => c.Resources.Count)
+                .ThenBy(c => c.Name)
+                .ToList();
+
+            foreach (var course in courses)
+            {
+                Console.WriteLine($"Course: {course.Name}");
+
+                // Sắp xếp resources theo số lượng licenses và tên
+                var orderedResources = course.Resources
+                    .OrderByDescending(r => r.Licenses.Count)
+                    .ThenBy(r => r.Name);
+
+                foreach (var resource in orderedResources)
+                {
+                    Console.WriteLine($"  Resource: {resource.Name}");
+
+                    if (resource.Licenses.Any())
+                    {
+                        Console.WriteLine("    Licenses:");
+                        foreach (var resourceLicense in resource.Licenses)
+                        {
+                            Console.WriteLine($"      - {resourceLicense.License.Name}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("    No licenses");
+                    }
+                }
+
+                Console.WriteLine();
+            }
+        }
+
+        private static void ListStudentStatisticsWithResourcesAndLicenses(StudentSystemContext context)
+        {
+            Console.WriteLine("\n--- Student Statistics With Resources And Licenses ---");
+
+            var studentStats = context.Students
+                .Include(s => s.CourseEnrollments)
+                    .ThenInclude(sc => sc.Course)
+                        .ThenInclude(c => c.Resources)
+                            .ThenInclude(r => r.Licenses)
+                .Select(s => new
+                {
+                    StudentName = s.Name,
+                    CourseCount = s.CourseEnrollments.Count,
+                    ResourcesCount = s.CourseEnrollments.SelectMany(sc => sc.Course.Resources).Count(),
+                    LicensesCount = s.CourseEnrollments
+                        .SelectMany(sc => sc.Course.Resources)
+                        .SelectMany(r => r.Licenses)
+                        .Count()
+                })
+                .OrderByDescending(x => x.CourseCount)
+                .ThenByDescending(x => x.ResourcesCount)
+                .ThenBy(x => x.StudentName)
+                .ToList();
+
+            foreach (var stat in studentStats)
+            {
+                Console.WriteLine($"Student: {stat.StudentName}");
+                Console.WriteLine($"  Courses: {stat.CourseCount}");
+                Console.WriteLine($"  Total Resources: {stat.ResourcesCount}");
+                Console.WriteLine($"  Total Licenses: {stat.LicensesCount}");
+                Console.WriteLine();
+            }
+        }
+
         private static void CalculateStudentStatistics(StudentSystemContext context)
         {
             // Calculate statistics for students and their courses
@@ -646,6 +763,70 @@ namespace StudentSystem.Client
                 Console.WriteLine($"  Average Price: ${stat.AveragePrice:F2}");
                 Console.WriteLine();
             }
+        }
+
+        private static void SynchronizeResourceLicenses(
+            StudentSystemContext context,
+            dynamic[] resourceLicensesToKeep)
+        {
+            var existingResourceLicenses = context.ResourceLicenses.ToList();
+            var resourceDict = context.Resources.AsNoTracking().ToDictionary(r => r.Name, r => r.ResourceId);
+            var licenseDict = context.Licenses.AsNoTracking().ToDictionary(l => l.Name, l => l.LicenseId);
+
+            var keepResourceLicenseKeys = new List<(int, int)>();
+
+            // Build the list of resource-license pairs to keep
+            foreach (var rl in resourceLicensesToKeep)
+            {
+                bool resourceFound = resourceDict.TryGetValue(rl.ResourceName, out int resourceId);
+                bool licenseFound = licenseDict.TryGetValue(rl.LicenseName, out int licenseId);
+
+                if (resourceFound && licenseFound)
+                {
+                    keepResourceLicenseKeys.Add((resourceId, licenseId));
+                }
+                else
+                {
+                    Console.WriteLine($"Cannot link: Resource {rl.ResourceName} or license {rl.LicenseName} not found");
+                }
+            }
+
+            // Remove resource-license relationships not in the list
+            foreach (var existingResourceLicense in existingResourceLicenses)
+            {
+                if (!keepResourceLicenseKeys.Contains((existingResourceLicense.ResourceId, existingResourceLicense.LicenseId)))
+                {
+                    context.ResourceLicenses.Remove(existingResourceLicense);
+                    var resourceName = context.Resources.FirstOrDefault(r => r.ResourceId == existingResourceLicense.ResourceId)?.Name;
+                    var licenseName = context.Licenses.FirstOrDefault(l => l.LicenseId == existingResourceLicense.LicenseId)?.Name;
+                    Console.WriteLine($"Removed unused resource-license link: {resourceName} - {licenseName}");
+                }
+            }
+            context.SaveChanges();
+
+            // Add new resource-license relationships
+            foreach (var rl in resourceLicensesToKeep)
+            {
+                bool resourceFound = resourceDict.TryGetValue(rl.ResourceName, out int resourceId);
+                bool licenseFound = licenseDict.TryGetValue(rl.LicenseName, out int licenseId);
+
+                if (resourceFound && licenseFound)
+                {
+                    var exists = context.ResourceLicenses.Any(rl =>
+                        rl.ResourceId == resourceId && rl.LicenseId == licenseId);
+
+                    if (!exists)
+                    {
+                        context.ResourceLicenses.Add(new ResourceLicense
+                        {
+                            ResourceId = resourceId,
+                            LicenseId = licenseId
+                        });
+                        Console.WriteLine($"Added resource-license link: {rl.ResourceName} - {rl.LicenseName}");
+                    }
+                }
+            }
+            context.SaveChanges();
         }
     }
 }

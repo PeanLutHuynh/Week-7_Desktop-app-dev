@@ -6,6 +6,11 @@ namespace StudentSystem.Models
 {
     public class Resource
     {
+        public Resource()
+        {
+            this.Licenses = new HashSet<ResourceLicense>();
+        }
+
         public int ResourceId { get; set; }
 
         [Required]
@@ -23,6 +28,8 @@ namespace StudentSystem.Models
         public int CourseId { get; set; }
 
         public virtual Course Course { get; set; }
+
+        public virtual ICollection<ResourceLicense> Licenses { get; set; }
     }
 
     public enum ResourceType

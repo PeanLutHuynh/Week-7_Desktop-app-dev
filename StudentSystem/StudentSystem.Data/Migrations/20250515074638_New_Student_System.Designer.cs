@@ -11,8 +11,8 @@ using StudentSystem.Data;
 namespace StudentSystem.Data.Migrations
 {
     [DbContext(typeof(StudentSystemContext))]
-    [Migration("20250514180011_Student_System")]
-    partial class Student_System
+    [Migration("20250515074638_New_Student_System")]
+    partial class New_Student_System
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -79,6 +79,22 @@ namespace StudentSystem.Data.Migrations
                     b.ToTable("HomeworkSubmissions");
                 });
 
+            modelBuilder.Entity("StudentSystem.Models.License", b =>
+                {
+                    b.Property<int>("LicenseId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("LicenseId");
+
+                    b.ToTable("Licenses");
+                });
+
             modelBuilder.Entity("StudentSystem.Models.Resource", b =>
                 {
                     b.Property<int>("ResourceId")
@@ -106,6 +122,21 @@ namespace StudentSystem.Data.Migrations
                     b.HasIndex("CourseId");
 
                     b.ToTable("Resources");
+                });
+
+            modelBuilder.Entity("StudentSystem.Models.ResourceLicense", b =>
+                {
+                    b.Property<int>("ResourceId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("LicenseId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("ResourceId", "LicenseId");
+
+                    b.HasIndex("LicenseId");
+
+                    b.ToTable("ResourceLicenses");
                 });
 
             modelBuilder.Entity("StudentSystem.Models.Student", b =>
@@ -179,6 +210,25 @@ namespace StudentSystem.Data.Migrations
                     b.Navigation("Course");
                 });
 
+            modelBuilder.Entity("StudentSystem.Models.ResourceLicense", b =>
+                {
+                    b.HasOne("StudentSystem.Models.License", "License")
+                        .WithMany("Resources")
+                        .HasForeignKey("LicenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("StudentSystem.Models.Resource", "Resource")
+                        .WithMany("Licenses")
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("License");
+
+                    b.Navigation("Resource");
+                });
+
             modelBuilder.Entity("StudentSystem.Models.StudentCourse", b =>
                 {
                     b.HasOne("StudentSystem.Models.Course", "Course")
@@ -205,6 +255,16 @@ namespace StudentSystem.Data.Migrations
                     b.Navigation("Resources");
 
                     b.Navigation("StudentsEnrolled");
+                });
+
+            modelBuilder.Entity("StudentSystem.Models.License", b =>
+                {
+                    b.Navigation("Resources");
+                });
+
+            modelBuilder.Entity("StudentSystem.Models.Resource", b =>
+                {
+                    b.Navigation("Licenses");
                 });
 
             modelBuilder.Entity("StudentSystem.Models.Student", b =>
